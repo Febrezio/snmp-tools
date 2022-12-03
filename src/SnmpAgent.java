@@ -1,11 +1,15 @@
-import org.snmp4j.*;
+import org.snmp4j.CommandResponder;
+import org.snmp4j.Snmp;
+import org.snmp4j.TransportMapping;
 import org.snmp4j.mp.MPv3;
-import org.snmp4j.mp.StatusInformation;
 import org.snmp4j.security.*;
-import org.snmp4j.smi.*;
+import org.snmp4j.smi.OctetString;
+import org.snmp4j.smi.UdpAddress;
 import org.snmp4j.transport.DefaultUdpTransportMapping;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class SnmpAgent {
     private static final String SMNP_USER = "testsnmp";
@@ -15,58 +19,10 @@ public class SnmpAgent {
     private static final int SMNP_PORT = 161;
     private final Snmp snmp;
     private TransportMapping transportMapping;
+    private List<CommandResponder> commandResponders;
 
     public SnmpAgent() {
         snmp = new Snmp();
-        snmp.getMessageDispatcher().addCommandResponder(new CommandResponder() {
-            @Override
-            public void processPdu(CommandResponderEvent event) {
-                System.out.println("Incoming Event = " + event);
-                PDU requestPDU = event.getPDU();
-                ScopedPDU responsePDU = (ScopedPDU) requestPDU;
-                responsePDU.setErrorStatus(PDU.noError);
-
-                for (VariableBinding binding : requestPDU.getVariableBindings()) {
-                    System.out.println("Incoming VariableBinding = " + binding);
-                    switch (requestPDU.getType()) {
-                        case PDU.GETBULK:
-                            binding.setOid(new OID("1.3.6.1"));
-                        case PDU.GET:
-                            Variable variable = new OctetString("HELLO");
-                            binding.setVariable(variable);
-                            break;
-                        case PDU.SET:
-                            break;
-                        default:
-                            System.out.println("PDU Type not supported: " + PDU.getTypeString(requestPDU.getType()));
-                            responsePDU.setErrorStatus(PDU.genErr);
-                    }
-                    System.out.println("Outgoing VariableBinding = " + binding);
-                }
-
-                if (requestPDU.getType() == PDU.GETBULK) {
-                    VariableBinding binding = new VariableBinding(new OID("1.3.7"), new OctetString("WHAT"));
-                    requestPDU.add(binding);
-                }
-
-                responsePDU.setType(PDU.RESPONSE);
-                responsePDU.setErrorIndex(0);
-                StatusInformation statusInformation =new StatusInformation();
-                event.setProcessed(true);
-                try {
-                    event.getMessageDispatcher().returnResponsePdu(event.getMessageProcessingModel(),
-                            event.getSecurityModel(),
-                            event.getSecurityName(),
-                            event.getSecurityLevel(),
-                            responsePDU,
-                            event.getMaxSizeResponsePDU(),
-                            event.getStateReference(),
-                            statusInformation);
-                } catch (MessageException e) {
-                    e.printStackTrace();
-                }
-            }
-        });
 
         try {
             transportMapping = new DefaultUdpTransportMapping(new UdpAddress(SMNP_IP + "/" + SMNP_PORT));
@@ -103,8 +59,20 @@ public class SnmpAgent {
         }
     }
 
+    public void setCommandResponders(List<CommandResponder> commandResponders) {
+        this.commandResponders = commandResponders;
+        for (CommandResponder commandResponder : commandResponders) {
+            snmp.getMessageDispatcher().addCommandResponder(commandResponder);
+        }
+    }
+
     public static void main(String[] args) {
         SnmpAgent snmpAgent = new SnmpAgent();
+        List<CommandResponder> commandResponders = new ArrayList<>();
+        commandResponders.add(new GetCommandResponder());
+        commandResponders.add(new GetBulkCommandResponder());
+        commandResponders.add(new SetCommandResponder());
+        snmpAgent.setCommandResponders(commandResponders);
         try {
             snmpAgent.run();
         } catch (IOException e) {
