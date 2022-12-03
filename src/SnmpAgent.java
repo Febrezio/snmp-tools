@@ -6,8 +6,6 @@ import org.snmp4j.smi.*;
 import org.snmp4j.transport.DefaultUdpTransportMapping;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.List;
 
 public class SnmpAgent {
     private static final String SMNP_USER = "testsnmp";
@@ -27,12 +25,13 @@ public class SnmpAgent {
                 PDU requestPDU = event.getPDU();
                 ScopedPDU responsePDU = (ScopedPDU) requestPDU;
                 responsePDU.setErrorStatus(PDU.noError);
-                OID lastOid = null;
+
                 for (VariableBinding binding : requestPDU.getVariableBindings()) {
                     System.out.println("Incoming VariableBinding = " + binding);
                     switch (requestPDU.getType()) {
-                        case PDU.GET:
                         case PDU.GETBULK:
+                            binding.setOid(new OID("1.3.6.1"));
+                        case PDU.GET:
                             Variable variable = new OctetString("HELLO");
                             binding.setVariable(variable);
                             break;
@@ -42,12 +41,11 @@ public class SnmpAgent {
                             System.out.println("PDU Type not supported: " + PDU.getTypeString(requestPDU.getType()));
                             responsePDU.setErrorStatus(PDU.genErr);
                     }
-                    lastOid = binding.getOid();
                     System.out.println("Outgoing VariableBinding = " + binding);
                 }
 
-                if (requestPDU.getType() == PDU.GETBULK && lastOid != null) {
-                    VariableBinding binding = new VariableBinding(new OID("1.3.6.2.1.5.'hello'.1"), new OctetString("WHAT?"));
+                if (requestPDU.getType() == PDU.GETBULK) {
+                    VariableBinding binding = new VariableBinding(new OID("1.3.7"), new OctetString("WHAT"));
                     requestPDU.add(binding);
                 }
 
