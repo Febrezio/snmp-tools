@@ -79,7 +79,7 @@ public class SnmpAgent {
         // Table 1 Row 1
         List<Row> rows = new ArrayList<>();
         Row row = new Row();
-        row.setIndex(new OID("2.7.3.5"));
+        row.setIndex(new OID("82.7.13.85"));
         rows.add(row);
         table.setRows(rows);
         // Table 1 Row 1 columns
