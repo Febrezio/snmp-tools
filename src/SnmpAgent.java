@@ -3,8 +3,7 @@ import org.snmp4j.Snmp;
 import org.snmp4j.TransportMapping;
 import org.snmp4j.mp.MPv3;
 import org.snmp4j.security.*;
-import org.snmp4j.smi.OctetString;
-import org.snmp4j.smi.UdpAddress;
+import org.snmp4j.smi.*;
 import org.snmp4j.transport.DefaultUdpTransportMapping;
 
 import java.io.IOException;
@@ -66,13 +65,45 @@ public class SnmpAgent {
         }
     }
 
-    public static void main(String[] args) {
-        SnmpAgent snmpAgent = new SnmpAgent();
+    private static void initMibStore() {
+        MibStore mibStore = MibStore.getInstance();
+        mibStore.clear();
+        mibStore.addScalar(new VariableBinding(new OID("1.2.1.3.2.1"), new Integer32(3)));
+        // Table 1
+        Table table = new Table();
+        table.setOid(new OID("1.2.1.3.5"));
+        // Table 1 Model
+        TableModel model = new TableModel();
+        model.setOid(new OID(table.getOid() + ".1"));
+        table.setModel(model);
+        // Table 1 Row 1
+        List<Row> rows = new ArrayList<>();
+        Row row = new Row();
+        row.setIndex(new OID("2.7.3.5"));
+        rows.add(row);
+        table.setRows(rows);
+        // Table 1 Row 1 columns
+        List<VariableBinding> columns = new ArrayList<>();
+        columns.add(new VariableBinding(new OID(model.getOid() + ".1"), new Integer32(3)));
+        columns.add(new VariableBinding(new OID(model.getOid() + ".2"), new OctetString("My Data")));
+        columns.add(new VariableBinding(new OID(model.getOid() + ".3"), new IpAddress("127.0.0.1")));
+        row.setColumns(columns);
+
+        mibStore.addTable(table);
+    }
+
+    private static List<CommandResponder> makeCommandResponders() {
         List<CommandResponder> commandResponders = new ArrayList<>();
         commandResponders.add(new GetCommandResponder());
         commandResponders.add(new GetBulkCommandResponder());
         commandResponders.add(new SetCommandResponder());
-        snmpAgent.setCommandResponders(commandResponders);
+        return commandResponders;
+    }
+
+    public static void main(String[] args) {
+        SnmpAgent snmpAgent = new SnmpAgent();
+        snmpAgent.setCommandResponders(makeCommandResponders());
+        initMibStore();
         try {
             snmpAgent.run();
         } catch (IOException e) {
