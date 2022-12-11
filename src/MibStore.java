@@ -1,14 +1,18 @@
 import org.snmp4j.smi.*;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class MibStore {
     private static MibStore INSTANCE;
     private final Map<OID, Table> oidTableMap = new HashMap<>();
     private final List<VariableBinding> bindings = new ArrayList<>();
+
+    private final Comparator<VariableBinding> bindingOidComparator = new Comparator<>() {
+        @Override
+        public int compare(VariableBinding o1, VariableBinding o2) {
+            return o1.getOid().compareTo(o2.getOid());
+        }
+    };
 
     private MibStore() {
     }
@@ -42,12 +46,14 @@ public class MibStore {
                 bindings.add(column);
             }
         }
+        bindings.sort(bindingOidComparator);
 
         oidTableMap.put(table.getOid(), table);
     }
 
     public void addScalar(VariableBinding scalar){
         bindings.add(scalar);
+        bindings.sort(bindingOidComparator);
     }
 
     public void clear(){
